@@ -7,7 +7,7 @@ SECRET_KEY = 'your-secret-key-here'  # Replace with your actual secret key
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost','feedback.z7fb.in']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
