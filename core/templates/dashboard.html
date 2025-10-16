@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - File Sharing{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Welcome to the File Sharing Platform</h1>
+        <p class="text-gray-600 mt-2">{{ user_role }} Dashboard</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="stats-container">
+        {% if user_role == "Student" %}
+        <!-- Received Files Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-blue-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-blue-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/3b82f6/download.png" alt="Received Files" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-received-files">0</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Received Files</h3>
+        </div>
+
+        <!-- Teachers Sharing Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-purple-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-purple-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/9333ea/teacher.png" alt="Teachers Sharing" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-sharing-teachers">0</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Teachers Sharing</h3>
+        </div>
+
+        <!-- Subjects Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-yellow-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/f59e0b/book.png" alt="Subjects" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-subjects">0</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Total Subjects</h3>
+        </div>
+
+        <!-- Batch Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-green-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-green-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/10b981/class.png" alt="Batch" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="student-batch">{{ user.batchcode|default:"N/A" }}</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Your Batch</h3>
+        </div>
+
+        {% else %}
+        <!-- Teachers Card -->
+        <!-- <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-blue-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-blue-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/3b82f6/users.png" alt="Teachers" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-teachers">{{ total_teachers }}</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Total Teachers</h3>
+        </div> -->
+
+        <!-- Students Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-green-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-green-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/10b981/student-male.png" alt="Students" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-students">{{ total_students }}</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Total Students</h3>
+        </div>
+
+        <!-- Batches Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-yellow-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/f59e0b/stack.png" alt="Batches" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-batches">{{ total_batches }}</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Total Batches</h3>
+        </div>
+
+        <!-- Files Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 transform hover:scale-105 transition-transform duration-200 border-l-4 border-red-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-red-100 rounded-full">
+                    <img src="https://img.icons8.com/ios-filled/50/ef4444/sent.png" alt="Sent Files" class="w-8 h-8">
+                </div>
+                <span class="text-3xl font-bold text-gray-700" id="total-sent-files">{{ total_sent_files }}</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600">Total Sent Files</h3>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Actions Section -->
+    <div class="mt-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% if user_role == 'Teacher' or user_role == 'Admin' %}
+            <a href="{% url 'teacher:upload' %}" class="bg-blue-500 text-white rounded-lg p-4 hover:bg-blue-600 transition-colors">
+                <h3 class="text-lg font-semibold">Upload Files</h3>
+                <p class="text-sm opacity-90">Share educational materials with students</p>
+            </a>
+            {% endif %}
+            
+            {% if user_role == 'Student' or user_role == 'Admin' %}
+            <a href="{% url 'student:received_files' %}" class="bg-green-500 text-white rounded-lg p-4 hover:bg-green-600 transition-colors">
+                <h3 class="text-lg font-semibold">View Files</h3>
+                <p class="text-sm opacity-90">Access your educational materials</p>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateDashboard() {
+        fetch('{% url "core:dashboard_stats" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const role = '{{ user_role }}';
+                if (role === 'Student') {
+                    document.getElementById('total-received-files').textContent = data.total_received_files || 0;
+                    document.getElementById('total-sharing-teachers').textContent = data.total_sharing_teachers || 0;
+                    document.getElementById('total-subjects').textContent = data.total_subjects || 0;
+                } else {
+                    document.getElementById('total-teachers').textContent = data.total_teachers;
+                    document.getElementById('total-students').textContent = data.total_students;
+                    document.getElementById('total-batches').textContent = data.total_batches;
+                    document.getElementById('total-sent-files').textContent = data.total_sent_files;
+                }
+            } else {
+                console.error('Error fetching stats:', data.error);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // Initial load
+    updateDashboard();
+
+    // Update every 30 seconds
+    setInterval(updateDashboard, 30000);
+</script>
+{% endblock %}

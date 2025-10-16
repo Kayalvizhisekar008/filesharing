@@ -1,0 +1,554 @@
+{% extends "base.html" %}
+
+{% block title %}Your Study Books{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<input type="hidden" id="files-hash" value="{{ files_data_hash }}" />
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="p-4 {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %} rounded-lg">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if error_message %}
+<div class="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+    <p class="font-bold">{{ error_message }}</p>
+</div>
+{% endif %}
+
+{% if no_files_message %}
+<div class="mb-4 p-4 bg-yellow-50 text-yellow-800 rounded-lg">
+    <p class="font-bold mb-2">{{ no_files_message }}</p>
+    {% if no_files_reasons %}
+    <ul class="list-disc list-inside">
+        {% for reason in no_files_reasons %}
+        <li>{{ reason }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="container mx-auto p-4 max-w-7xl">
+    <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Your Study Books</h1>
+    
+    {% if files_by_subject %}
+    <div class="flex flex-wrap justify-center gap-4 mb-8">
+        {% for subject in files_by_subject.keys %}
+        <button class="bg-[#8b4513] text-white px-6 py-3 rounded-lg flex items-center space-x-2 shadow-md subject-btn transition-transform duration-300 ease-in-out transform hover:scale-105" data-subject="{{ subject }}">
+            <span class="text-xl">
+                {% if subject == 'Physics' %}⚛️
+                {% elif subject == 'Chemistry' %}🧪
+                {% elif subject == 'Mathematics' %}📐
+                {% elif subject == 'Biology' %}🌱
+                {% elif subject == 'English' %}📖
+                {% elif subject == 'Language' %}🗣️
+                {% elif subject == 'Social' %}🌍
+                {% else %}📚
+                {% endif %}
+            </span>
+            <span class="font-semibold">{{ subject|upper }}</span>
+        </button>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8">
+        <p class="text-gray-600 text-lg">No subjects or files available. Please contact your teacher if you believe this is an error.</p>
+    </div>
+    {% endif %}
+
+    <div id="book-card-container" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8"></div>
+
+    <div class="flex justify-center">
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-xl w-full max-w-4xl border border-gray-200">
+            <div id="pdf-viewer" class="book-viewer relative overflow-hidden" style="height: 80vh;">
+                <div class="placeholder text-center py-12 absolute inset-0 flex flex-col justify-center items-center">
+                    <h2 class="text-2xl font-bold text-gray-600 mb-4">Select a Subject</h2>
+                    <p class="text-gray-500">Click a subject button to view study notes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pdf-modal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl h-[90vh] relative">
+            <button id="close-modal" class="absolute top-4 right-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-300">Close</button>
+            <div id="modal-pdf-viewer" class="book-viewer relative overflow-hidden" style="height: calc(90vh - 4rem);">
+                <div class="placeholder text-center py-12 absolute inset-0 flex flex-col justify-center items-center">
+                    <h2 class="text-2xl font-bold text-gray-600 mb-4">Loading...</h2>
+                    <p class="text-gray-500">Please wait while the book loads.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-center mt-4">
+        <button id="close-book" class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg shadow-md hidden transition-colors duration-300">
+            Close Book
+        </button>
+    </div>
+</div>
+
+<style>
+    .book-viewer { display: none; }
+    .book-viewer.active { display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f5f5f5; padding:20px; }
+    .placeholder { display:flex; }
+    .book-page { display:none; width:100%; min-height:70vh; max-height:70vh; background:#fff; border:1px solid #d3d3d3; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.1); padding:20px; overflow-y:auto; transition:opacity .3s ease; }
+    .book-viewer.active .book-page { display:block; opacity:1; }
+    .page-content { display:flex; justify-content:center; align-items:flex-start; width:100%; height:100%; }
+    .page-content canvas { max-width:100%; height:auto; display:block; margin:0 auto; box-shadow:0 2px 4px rgba(0,0,0,.1); }
+    #pdf-modal { transition: opacity .3s ease; }
+    #pdf-modal.active { opacity:1; }
+    .disabled { background-color:gray; cursor:not-allowed; }
+    .book-card { transition: all 0.3s ease; }
+    .book-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    .error-container { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 10px 0; }
+    .error-title { color: #dc2626; font-weight: bold; margin-bottom: 8px; }
+    .error-details { color: #7f1d1d; font-size: 14px; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+    // PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    pdfjsLib.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const subjectButtons = document.querySelectorAll('.subject-btn');
+        const bookCardContainer = document.getElementById('book-card-container');
+        const pdfViewer = document.getElementById('pdf-viewer');
+        const modalPdfViewer = document.getElementById('modal-pdf-viewer');
+        const pdfModal = document.getElementById('pdf-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const closeButton = document.getElementById('close-book');
+
+        let filesData = {};
+        try {
+            const jsonData = '{{ files_data_json|escapejs|default:"{}" }}';
+            filesData = JSON.parse(jsonData);
+            console.log('Files data loaded:', Object.keys(filesData));
+        } catch (e) {
+            console.error('Error parsing files_data_json', e);
+            bookCardContainer.innerHTML = `<div class="col-span-full text-center py-8"><p class="text-red-600 text-lg">Error loading file data</p></div>`;
+        }
+
+        // Helper to create book card
+        function createBookCard(file) {
+            const div = document.createElement('div');
+            div.className = 'book-card bg-gray-100 border border-gray-300 rounded-lg p-6 shadow-lg text-center transition-all duration-300';
+            
+            // Determine if file is actually available (check date range and file existence)
+            const isActuallyAvailable = file.pdf_url && file.available?.is_available && file.file_exists;
+            
+            div.innerHTML = `
+                <span class="pdf-icon text-3xl text-[#8b4513] mr-2">📄</span>
+                <span class="title font-bold text-xl text-[#8b4513]">${file.title || 'Untitled'}</span>
+                <a href="#" class="details-link block mt-4 text-[#8b4513] underline text-sm hover:text-[#704214]">Show ${file.title || 'Untitled'} Details</a>
+                <button class="open-button ${isActuallyAvailable ? 'bg-[#8b4513] hover:bg-[#704214]' : 'bg-gray-400 cursor-not-allowed'} text-white px-6 py-2 rounded-lg mt-4 transition-colors duration-300" ${!isActuallyAvailable ? 'disabled' : ''}>
+                    ${isActuallyAvailable ? 'Open Book' : 'Not Available'}
+                </button>
+                <div class="details-container hidden mt-4 p-4 bg-[#f0f0f0] border border-[#d3d3d3] rounded-lg text-left text-sm">
+                    <p><strong>Teacher:</strong> <span>${file.teacher || 'N/A'}</span></p>
+                    <p><strong>Topic:</strong> <span>${file.topic || 'N/A'}</span></p>
+                    <p><strong>Sub-Topic:</strong> <span>${file.subtopic || 'N/A'}</span></p>
+                    <p><strong>Batch:</strong> <span>${file.batch || 'N/A'}</span></p>
+                    <p><strong>Availability:</strong> 
+                        <span class="${file.available?.is_available ? 'text-green-600' : 'text-red-600'} font-medium">
+                            ${file.available?.status || 'N/A'}
+                        </span>
+                    </p>
+                    <p><strong>Date Range:</strong> <span>${file.available?.from || 'N/A'} to ${file.available?.to || 'N/A'}</span></p>
+                    <p><strong>File Status:</strong> <span class="${file.file_exists ? 'text-green-600' : 'text-red-600'}">${file.file_exists ? 'Available' : 'Not Found'}</span></p>
+                    ${!file.available?.is_available ? `<p class="text-red-600 font-medium mt-2">⚠️ This file is outside its availability period</p>` : ''}
+                    ${!file.file_exists ? `<p class="text-red-600 font-medium mt-2">⚠️ File not found on server</p>` : ''}
+                    <button class="hide-details mt-4 bg-[#8b4513] hover:bg-[#704214] text-white px-4 py-2 rounded-lg w-full transition-colors duration-300">Hide Details</button>
+                </div>
+            `;
+
+            const detailsLink = div.querySelector('.details-link');
+            const detailsContainer = div.querySelector('.details-container');
+            const hideDetailsBtn = div.querySelector('.hide-details');
+            const openBookBtn = div.querySelector('.open-button');
+
+            detailsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                detailsContainer.classList.toggle('hidden');
+                detailsLink.textContent = detailsContainer.classList.contains('hidden') 
+                    ? `Show ${file.title || 'Untitled'} Details` 
+                    : `Hide ${file.title || 'Untitled'} Details`;
+            });
+
+            hideDetailsBtn.addEventListener('click', () => {
+                detailsContainer.classList.add('hidden');
+                detailsLink.textContent = `Show ${file.title || 'Untitled'} Details`;
+            });
+
+            if (isActuallyAvailable) {
+                openBookBtn.addEventListener('click', async () => {
+                    try {
+                        await openBook(file.pdf_url, file.title || 'Untitled');
+                    } catch (err) {
+                        console.error('openBook error', err);
+                        showErrorModal(err.message || 'Unable to load file', file.title || 'Untitled');
+                    }
+                });
+            }
+
+            return div;
+        }
+
+        // Enhanced error display function
+        function showErrorModal(errorMessage, fileName = '') {
+            modalPdfViewer.innerHTML = `
+                <div class="text-center py-12 px-4">
+                    <div class="error-container max-w-md mx-auto">
+                        <div class="error-title text-lg mb-4">
+                            ${fileName ? `Error opening "${fileName}"` : 'Error Loading File'}
+                        </div>
+                        <div class="error-details mb-4">
+                            ${errorMessage}
+                        </div>
+                        <div class="text-sm text-gray-600 mt-4">
+                            <p class="font-medium mb-2">Possible solutions:</p>
+                            <ul class="list-disc list-inside space-y-1 text-left">
+                                <li>Check if the file's availability date range is current</li>
+                                <li>Verify you're still logged in</li>
+                                <li>Try refreshing the page</li>
+                                <li>Contact your teacher if the problem persists</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <button onclick="closePDF()" class="mt-6 bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg transition-colors duration-300">
+                        Close
+                    </button>
+                </div>
+            `;
+            pdfModal.classList.remove('hidden');
+            closeButton.classList.add('hidden');
+        }
+
+        // Wire up subject buttons
+        subjectButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const subject = btn.dataset.subject;
+                bookCardContainer.classList.remove('hidden');
+                bookCardContainer.innerHTML = '';
+                const files = filesData[subject] || [];
+                if (!files.length) {
+                    bookCardContainer.innerHTML = `<div class="col-span-full text-center py-8"><p class="text-gray-600 text-lg">No files available for ${subject}</p></div>`;
+                } else {
+                    files.forEach(f => bookCardContainer.appendChild(createBookCard(f)));
+                }
+                resetPdfViewer();
+                pdfViewer.classList.add('active');
+                closeButton.classList.add('hidden');
+            });
+        });
+
+        // Clean UI and close
+        closeModalBtn.addEventListener('click', closePDF);
+        closeButton.addEventListener('click', closePDF);
+
+        // Enhanced openBook function with better error handling
+        async function openBook(pdfUrl, title) {
+            pdfModal.classList.remove('hidden');
+            modalPdfViewer.classList.add('active');
+            modalPdfViewer.innerHTML = `
+                <div class="flex justify-center items-center h-full">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8b4513] mx-auto mb-4"></div>
+                        <p class="text-gray-600">Loading PDF...</p>
+                    </div>
+                </div>
+            `;
+            closeButton.classList.remove('hidden'); // Ensure close button is visible when book is opened
+
+            try {
+                await loadPDFBytesAndRender(pdfUrl, title);
+            } catch (err) {
+                console.error('openBook load error', err);
+                showErrorModal(err.message, title);
+                closeButton.classList.add('hidden'); // Hide close button on error
+            }
+        }
+
+        // Fetch PDF as arrayBuffer then hand to pdfjs
+        async function loadPDFBytesAndRender(pdfUrl, title) {
+            // Show spinner
+            modalPdfViewer.innerHTML = `
+                <div class="flex justify-center items-center h-full">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8b4513] mx-auto mb-4"></div>
+                        <p class="text-gray-600">Downloading PDF...</p>
+                    </div>
+                </div>
+            `;
+
+            // Get CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (!csrfToken || !csrfToken.value) {
+                throw new Error('CSRF token not found. Please refresh the page and try again.');
+            }
+
+            // Enhanced fetch with timeout and better error handling
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+            try {
+                const resp = await fetch(pdfUrl, { 
+                    method: 'GET', 
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/pdf',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken.value
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!resp.ok) {
+                    let errorData;
+                    const contentType = resp.headers.get('content-type');
+                    let errorText;
+
+                    try {
+                        if (contentType && contentType.includes('application/json')) {
+                            errorData = await resp.json();
+                            errorText = errorData.message || JSON.stringify(errorData);
+                        } else {
+                            errorText = await resp.text();
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing response:', parseError);
+                        errorText = 'Could not parse server response';
+                    }
+
+                    let errorMessage;
+                    switch(resp.status) {
+                        case 403:
+                            if (errorData?.error === 'date_range') {
+                                errorMessage = errorData.message;
+                            } else {
+                                errorMessage = 'You do not have permission to access this file.';
+                            }
+                            break;
+                        case 404:
+                            errorMessage = 'The requested PDF file was not found.';
+                            break;
+                        case 415:
+                            errorMessage = 'The file format is not supported (must be PDF).';
+                            break;
+                        case 500:
+                            errorMessage = 'The server encountered an error while processing the file.';
+                            break;
+                        default:
+                            errorMessage = `Server returned HTTP ${resp.status} (${resp.statusText})`;
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+
+                const contentType = resp.headers.get('content-type') || '';
+                if (!contentType.includes('application/pdf')) {
+                    const text = await resp.text().catch(() => '');
+                    console.error('PDF fetch error: unexpected content type', {
+                        url: pdfUrl,
+                        expectedType: 'application/pdf',
+                        receivedType: contentType,
+                        responsePreview: text.substring(0, 500)
+                    });
+
+                    if (text.includes('DOCTYPE html')) {
+                        throw new Error('Server returned HTML instead of PDF. You may need to log in again.');
+                    } else if (contentType.includes('text/plain')) {
+                        throw new Error(text.trim() || 'Server returned an error message');
+                    } else {
+                        throw new Error(`Server returned invalid content type: ${contentType}. Expected: application/pdf`);
+                    }
+                }
+
+                const arrayBuffer = await resp.arrayBuffer();
+                return renderPdfFromArrayBuffer(arrayBuffer, title);
+
+            } catch (err) {
+                clearTimeout(timeoutId);
+                if (err.name === 'AbortError') {
+                    throw new Error('Request timeout: The PDF took too long to load.');
+                }
+                throw err;
+            }
+        }
+
+        // Render PDF from ArrayBuffer via PDF.js
+        async function renderPdfFromArrayBuffer(arrayBuffer, title) {
+            try {
+                modalPdfViewer.innerHTML = `
+                    <div class="flex justify-center items-center h-full">
+                        <div class="text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8b4513] mx-auto mb-4"></div>
+                            <p class="text-gray-600">Initializing PDF viewer...</p>
+                        </div>
+                    </div>
+                `;
+
+                const loadingTask = pdfjsLib.getDocument({
+                    data: arrayBuffer,
+                    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+                    cMapPacked: true,
+                });
+
+                loadingTask.onProgress = function (progress) {
+                    if (progress && progress.loaded && progress.total) {
+                        const percent = Math.round((progress.loaded / progress.total) * 100);
+                        console.log('PDF loading progress:', percent + '%');
+                    }
+                };
+
+                const pdfDoc = await loadingTask.promise;
+                if (!pdfDoc || pdfDoc.numPages === 0) {
+                    throw new Error('PDF file is empty or invalid.');
+                }
+
+                // Render first page
+                const pageNum = 1;
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.0 });
+
+                const pageContainer = document.createElement('div');
+                pageContainer.className = 'book-page';
+                modalPdfViewer.innerHTML = '';
+                modalPdfViewer.appendChild(pageContainer);
+
+                // Compute scale to fit container
+                const containerWidth = Math.max(pageContainer.offsetWidth - 40, 800);
+                const scale = Math.min(containerWidth / viewport.width, 1.5);
+                const scaledViewport = page.getViewport({ scale });
+
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', { alpha: false });
+                canvas.width = Math.floor(scaledViewport.width);
+                canvas.height = Math.floor(scaledViewport.height);
+                canvas.style.width = '100%';
+                canvas.style.height = 'auto';
+
+                // White background
+                context.fillStyle = 'white';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+
+                await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'page-content';
+                contentDiv.appendChild(canvas);
+
+                pageContainer.innerHTML = '';
+                pageContainer.appendChild(contentDiv);
+                pageContainer.style.display = 'block';
+
+                // Page navigation hint
+                const hint = document.createElement('div');
+                hint.className = 'text-center mt-4 text-gray-600';
+                hint.innerHTML = `Page ${pageNum} of ${pdfDoc.numPages}<br><span class="text-sm">(Use left/right side click to navigate)</span>`;
+                pageContainer.appendChild(hint);
+
+                // Store PDF document for navigation
+                window._pdfDoc = pdfDoc;
+                window._currentPage = pageNum;
+                window._totalPages = pdfDoc.numPages;
+
+                // Handle left/right click navigation
+                modalPdfViewer.onclick = async function (e) {
+                    if (!window._pdfDoc) return;
+                    const rect = modalPdfViewer.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const nextPage = clickX < rect.width / 2 ? window._currentPage - 1 : window._currentPage + 1;
+                    
+                    if (nextPage >= 1 && nextPage <= window._totalPages) {
+                        try {
+                            window._currentPage = nextPage;
+                            const p = await window._pdfDoc.getPage(nextPage);
+                            const vp = p.getViewport({ scale: scaledViewport.scale || 1 });
+                            
+                            const c = document.createElement('canvas');
+                            const ctx = c.getContext('2d', { alpha: false });
+                            c.width = Math.floor(vp.width);
+                            c.height = Math.floor(vp.height);
+                            c.style.width = '100%';
+                            c.style.height = 'auto';
+                            
+                            ctx.fillStyle = 'white';
+                            ctx.fillRect(0, 0, c.width, c.height);
+                            await p.render({ canvasContext: ctx, viewport: vp }).promise;
+                            
+                            contentDiv.replaceChild(c, contentDiv.querySelector('canvas'));
+                            hint.innerHTML = `Page ${nextPage} of ${window._totalPages}<br><span class="text-sm">(Use left/right side click to navigate)</span>`;
+                        } catch (err) {
+                            console.error('Error rendering page', err);
+                        }
+                    }
+                };
+
+            } catch (err) {
+                console.error('Error in renderPdfFromArrayBuffer', err);
+                throw err;
+            }
+        }
+
+        // Enhanced close PDF and cleanup
+        function closePDF() {
+            try {
+                // Reset modal viewer
+                modalPdfViewer.innerHTML = `
+                    <div class="placeholder text-center py-12 absolute inset-0 flex flex-col justify-center items-center">
+                        <h2 class="text-2xl font-bold text-gray-600 mb-4">Loading...</h2>
+                        <p class="text-gray-500">Please wait while the book loads.</p>
+                    </div>
+                `;
+                modalPdfViewer.classList.remove('active');
+                pdfModal.classList.add('hidden');
+                
+                // Reset main viewer and book card container
+                resetPdfViewer();
+                bookCardContainer.classList.add('hidden');
+                closeButton.classList.add('hidden');
+
+                // Clean up PDF document
+                if (window._pdfDoc) {
+                    try { window._pdfDoc.destroy(); } catch (e) { console.warn('destroy pdf doc error', e); }
+                }
+                window._pdfDoc = null;
+                window._currentPage = 1;
+                window._totalPages = 1;
+
+                // Reset subject buttons to initial state
+                subjectButtons.forEach(btn => btn.classList.remove('bg-gray-400'));
+                subjectButtons.forEach(btn => btn.classList.add('bg-[#8b4513]'));
+            } catch (err) {
+                console.error('Error during closePDF', err);
+            }
+        }
+
+        function resetPdfViewer() {
+            pdfViewer.innerHTML = `
+                <div class="placeholder text-center py-12 absolute inset-0 flex flex-col justify-center items-center">
+                    <h2 class="text-2xl font-bold text-gray-600 mb-4">Select a Subject</h2>
+                    <p class="text-gray-500">Click a subject button to view study notes.</p>
+                </div>
+            `;
+            pdfViewer.classList.remove('active');
+        }
+
+        // Expose functions globally
+        window.closePDF = closePDF;
+        window.showErrorModal = showErrorModal;
+    });
+</script>
+{% endblock %}

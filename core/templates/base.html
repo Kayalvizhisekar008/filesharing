@@ -1,0 +1,306 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}File Sharing{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .sidebar {
+            transition: all 0.3s ease-in-out;
+            height: calc(100vh - 4rem);
+            top: 4rem;
+        }
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        .sidebar-open {
+            transform: translateX(0);
+            position: fixed;
+            left: 0;
+        }
+        .submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+        }
+        .submenu.open {
+            max-height: 500px;
+        }
+        @media (min-width: 640px) {
+            .sidebar-open {
+                position: sticky;
+                top: 4rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex flex-col h-screen">
+        <!-- Navbar -->
+        <header class="bg-blue-800 text-white p-4 flex justify-between items-center shadow-md">
+            <div class="flex items-center">
+                <button id="sidebar-toggle" class="mr-4 text-2xl">☰</button>
+                <img src="{% static 'img/Zedsweven logo_page-0001.jpg' %}" alt="Logo" class="h-10 w-10 mr-4 sm:h-12 sm:w-12">
+                <div class="text-2xl sm:text-3xl font-semibold font-arial">File Sharing</div>
+            </div>
+            <div class="controls flex items-center gap-4 sm:gap-6">
+                <div class="relative">
+                    <!-- Notification Button -->
+                    <button id="notification-button" class="relative bg-blue-700 text-white w-10 h-10 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-600 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                        {% if unread_notification_count > 0 %}
+                        <span id="notification-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ unread_notification_count }}</span>
+                        {% endif %}
+                    </button>
+
+                    <!-- Notifications Dropdown -->
+                    <div id="notification-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 transition-all duration-200 ease-in-out">
+                        <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                            <p class="text-sm font-medium text-gray-900">Notifications</p>
+                            <span class="text-xs text-gray-500" id="unread-count" {% if not unread_notification_count > 0 %}style="display: none;"{% endif %}>{{ unread_notification_count }} unread</span>
+                        </div>
+                        <div class="py-1 max-h-96 overflow-y-auto">
+                            {% if notifications %}
+                                {% for notification in notifications %}
+                                <div class="notification-item px-4 py-3 text-sm hover:bg-gray-100 border-b border-gray-50 {% if not notification.is_read %}bg-blue-50{% endif %}" data-notification-id="{{ notification.id }}">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-grow">
+                                            <div class="font-medium text-gray-900">{{ notification.title }}</div>
+                                            <div class="text-gray-600 mt-1">{{ notification.message }}</div>
+                                            <div class="text-xs text-gray-400 mt-1">{{ notification.created_at|timesince }} ago</div>
+                                        </div>
+                                        <button type="button" class="delete-notification-btn text-red-500 hover:text-red-700 p-1" data-id="{{ notification.id }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="px-4 py-3 text-sm text-gray-600">
+                                    No notifications yet
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm flex items-center gap-2">
+                    <span class="text-gray-200">{{ request.user.get_full_name }}</span>
+                    <span class="text-xs bg-blue-700 px-2 py-1 rounded">{{ user_role|title }}</span>
+                </div>
+                <div class="relative">
+                    <!-- Profile Button -->
+                    <button id="menu-button" class="bg-blue-700 text-white w-10 h-10 rounded-full flex items-center justify-center cursor-pointer text-xl font-medium hover:bg-blue-600 transition-colors">
+                        {{ request.user.username.0|upper }}
+                    </button>
+
+                    <!-- User Menu Dropdown -->
+                    <div id="dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 transition-all duration-200 ease-in-out">
+                        <!-- User Info -->
+                        <div class="px-4 py-3 border-b border-gray-100">
+                            <p class="text-sm font-medium text-gray-900">{{ request.user.get_full_name }}</p>
+                            <p class="text-xs text-gray-500">{{ user_role|title }}</p>
+                        </div>
+                        
+                        <!-- Menu Items -->
+                        <div class="py-1">
+                            <form action="{% url 'core:logout' %}" method="post" class="block">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-100 flex items-center">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                                    </svg>
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content with Sidebar -->
+        <div class="flex flex-1">
+            <!-- Sidebar -->
+            <aside id="sidebar" class="bg-gray-800 text-white w-64 p-4 fixed sm:sticky sidebar-open z-10">
+                <nav class="space-y-2">
+                    <h2 class="text-xl font-semibold mb-4">Menu</h2>
+                    {% for menu_item in menu_items %}
+                    <a href="{{ menu_item.url }}" class="block w-full px-4 py-2 text-left rounded hover:bg-gray-700 transition-colors {% if menu_item.url == current_url %}bg-blue-600{% endif %}">
+                        {{ menu_item.title }}
+                    </a>
+                    {% endfor %}
+                </nav>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-4">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Toggle sidebar
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('sidebar');
+
+        sidebarToggle.addEventListener('click', () => {
+            if (sidebar.classList.contains('sidebar-open')) {
+                sidebar.classList.remove('sidebar-open');
+                sidebar.classList.add('sidebar-hidden');
+            } else {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebar.classList.add('sidebar-open');
+            }
+        });
+
+        // Toggle dropdown menu
+        const menuButton = document.getElementById('menu-button');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+
+        menuButton.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('hidden');
+        });
+
+        // Toggle notifications dropdown and mark as read
+        const notificationButton = document.getElementById('notification-button');
+        const notificationDropdown = document.getElementById('notification-dropdown');
+        const notificationCount = document.getElementById('notification-count');
+
+        function markNotificationsAsRead() {
+            fetch('{% url "core:mark_notifications_read" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Remove unread styling from notifications
+                    document.querySelectorAll('.notification-item').forEach(item => {
+                        item.classList.remove('bg-blue-50');
+                    });
+                    
+                    // Hide notification count badge and text
+                    const notificationCount = document.getElementById('notification-count');
+                    const unreadTextElem = document.getElementById('unread-count');
+                    
+                    if (notificationCount) {
+                        notificationCount.style.display = 'none';
+                    }
+                    if (unreadTextElem) {
+                        unreadTextElem.style.display = 'none';
+                    }
+                }
+            })
+            .catch(error => console.error('Error marking notifications as read:', error));
+        }
+
+        notificationButton.addEventListener('click', () => {
+            notificationDropdown.classList.toggle('hidden');
+            if (!notificationDropdown.classList.contains('hidden')) {
+                markNotificationsAsRead();
+            }
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!menuButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+            if (!notificationButton.contains(event.target) && !notificationDropdown.contains(event.target)) {
+                notificationDropdown.classList.add('hidden');
+            }
+        });
+
+        // Initialize notification deletion handlers
+        function initNotificationDeletion() {
+            const notificationDropdown = document.getElementById('notification-dropdown');
+            const notificationCount = document.getElementById('notification-count');
+            const unreadTextElem = document.getElementById('unread-count');
+
+            if (!notificationDropdown) return;
+
+            notificationDropdown.addEventListener('click', function(event) {
+                const deleteBtn = event.target.closest('.delete-notification-btn');
+                if (!deleteBtn) return;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const notificationId = deleteBtn.dataset.id;
+                if (!notificationId) return;
+
+                if (!confirm('Are you sure you want to delete this notification?')) {
+                    return;
+                }
+
+                fetch('{% url "core:delete_notification" 0 %}'.replace('0', notificationId), {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.status === 'success') {
+                        const notificationItem = deleteBtn.closest('.notification-item');
+                        if (notificationItem) {
+                            notificationItem.remove();
+                        }
+
+                        if (data.unread_count > 0) {
+                            if (notificationCount) {
+                                notificationCount.textContent = data.unread_count;
+                                notificationCount.style.display = 'flex';
+                            }
+                            if (unreadTextElem) {
+                                unreadTextElem.textContent = data.unread_count + ' unread';
+                                unreadTextElem.style.display = 'block';
+                            }
+                        } else {
+                            if (notificationCount) {
+                                notificationCount.style.display = 'none';
+                            }
+                            if (unreadTextElem) {
+                                unreadTextElem.style.display = 'none';
+                            }
+                        }
+
+                        const remainingNotifications = notificationDropdown.querySelectorAll('.notification-item');
+                        if (remainingNotifications.length === 0) {
+                            const dropdownContent = notificationDropdown.querySelector('.py-1');
+                            if (dropdownContent) {
+                                dropdownContent.innerHTML = '<div class="px-4 py-3 text-sm text-gray-600">No notifications yet</div>';
+                            }
+                        }
+                    } else {
+                        alert('Error deleting notification: ' + data.message);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    alert('Error deleting notification. Please try again.');
+                });
+            });
+        }
+
+        // Initialize when document is loaded
+        document.addEventListener('DOMContentLoaded', initNotificationDeletion);
+    </script>
+</body>
+</html>
