@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload File - File Sharing{% endblock %}
+
+{% block content %}
+    <!-- Include SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    {% block extra_css %}
+    <!-- Add Tailwind CSS properly -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwind">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+        }
+    </style>
+    {% endblock %}
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+                <h2 class="text-center text-2xl font-semibold text-white">Share Educational File</h2>
+            </div>
+            <div class="p-6">
+                <form id="uploadForm" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    {% csrf_token %}
+                    <!-- Row 1: Teacher Name + Teacher Code -->
+                    <div class="mb-4 flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="teacherName" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Teacher Name</label>
+                            <input type="text" id="teacherName" name="teacherName" placeholder="e.g., John Doe" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                        </div>
+                        <div class="flex-1">
+                            <label for="teacherCode" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Teacher Code</label>
+                            <input type="text" id="teacherCode" name="teacherCode" placeholder="e.g., TCH001" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Subject (as input) + Topic -->
+                    <div class="mb-4 flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="subject" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Subject</label>
+                            <input type="text" id="subject" name="subject" placeholder="e.g., Physics, Mathematics, etc." class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <p class="mt-1 text-sm text-gray-500">Enter any subject name</p>
+                        </div>
+                        <div class="flex-1">
+                            <label for="topic" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Topic</label>
+                            <input type="text" id="topic" name="topic" placeholder="e.g., Algebra" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: From Date + To Date -->
+                    <div class="mb-4 flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="fromDate" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">From Date</label>
+                            <input type="date" id="fromDate" name="fromDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <p class="mt-1 text-sm text-gray-500">Start date for file availability.</p>
+                        </div>
+                        <div class="flex-1">
+                            <label for="toDate" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">To Date</label>
+                            <input type="date" id="toDate" name="toDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <p class="mt-1 text-sm text-gray-500">End date for file availability.</p>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Sub-Topic + Batch Code -->
+                    <div class="mb-4 flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="subTopic" class="block text-sm font-medium text-gray-700">Sub-Topic</label>
+                            <input type="text" id="subTopic" name="subTopic" placeholder="e.g., Linear Equations" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="flex-1">
+                            <label for="batchCode" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Batch Code</label>
+                            <select id="batchCode" name="batchCode" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                                <option value="" disabled selected>Select a batch</option>
+                                {% for batch in batches %}
+                                    <option value="{{ batch.batch_code }}">{{ batch.batch_code }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">Select a batch to auto-load students.</p>
+                        </div>
+                    </div>
+
+                    <!-- Full-width: Batch Students (Initially Hidden) -->
+                    <div id="batchStudentsSection" class="mb-4 hidden">
+                        <label class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Batch Students (Select at least one)</label>
+                        <div id="studentList" class="mt-1 border border-gray-300 rounded-md p-3 bg-white">
+                            <label class="flex items-center mb-2"><input type="checkbox" name="batchStudents" value="all" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"> Select All</label>
+                        </div>
+                        <p id="student-count" class="mt-1 text-sm text-gray-500">Total Students: 0</p>
+                        <p class="mt-1 text-sm text-gray-500">Select one or more students to share the file with.</p>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="mb-4">
+                        <label for="file" class="block text-sm font-medium text-gray-700 after:content-['_*'] after:text-red-500">Choose File</label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <div class="space-y-1 text-center">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="flex text-sm text-gray-600">
+                                    <label for="file" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                        <span>Upload a file</span>
+                                        <input id="file" name="file" type="file" class="sr-only" accept=".pdf,.doc,.docx,.jpg,.jpeg" required>
+                                    </label>
+                                    <p class="pl-1">or drag and drop</p>
+                                </div>
+                                <p class="text-xs text-gray-500">Drag a file here or click to select</p>
+                            </div>
+                        </div>
+                        <span id="fileName" class="text-sm text-gray-500">No file chosen</span>
+                        <p class="mt-1 text-sm text-gray-500">Supported formats: PDF, DOC, DOCX, JPG, JPEG. Max size: 1GB</p>
+                        <div id="fileSize" class="mt-2 hidden">
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="uploadProgress" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1"><span id="currentSize">0</span> / <span id="totalSize">0</span> uploaded</p>
+                        </div>
+                    </div>
+
+                    {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                        <div class="p-4 rounded-md {% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-800{% else %}bg-red-50 border border-red-200 text-red-800{% endif %}" data-message="{{ message }}" data-tags="{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform hover:scale-[1.02] transition-all">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                        Share File
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utility function for debouncing
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all form elements
+            const elements = {
+                fileInput: document.getElementById('file'),
+                fileNameSpan: document.getElementById('fileName'),
+                batchCodeSelect: document.getElementById('batchCode'),
+                batchStudentsSection: document.getElementById('batchStudentsSection'),
+                studentListDiv: document.getElementById('studentList'),
+                studentCountP: document.getElementById('student-count'),
+                form: document.getElementById('uploadForm'),
+                teacherNameInput: document.getElementById('teacherName'),
+                teacherCodeInput: document.getElementById('teacherCode'),
+                subjectInput: document.getElementById('subject'),
+                topicInput: document.getElementById('topic'),
+                fromDateInput: document.getElementById('fromDate'),
+                toDateInput: document.getElementById('toDate')
+            };
+
+            // Helper functions
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            function handleFileSelect() {
+                const file = elements.fileInput.files[0];
+                if (file) {
+                    elements.fileNameSpan.textContent = file.name;
+                    document.getElementById('fileSize').classList.remove('hidden');
+                    document.getElementById('totalSize').textContent = formatFileSize(file.size);
+                    document.getElementById('uploadProgress').style.width = '0%';
+                    document.getElementById('currentSize').textContent = '0 Bytes';
+                } else {
+                    elements.fileNameSpan.textContent = 'No file chosen';
+                    document.getElementById('fileSize').classList.add('hidden');
+                }
+            }
+
+            // Event Listeners
+            elements.fileInput.addEventListener('change', handleFileSelect);
+
+            // Student list management functions
+            function showLoadingState() {
+                elements.batchStudentsSection.classList.remove('hidden');
+                elements.studentListDiv.innerHTML = `
+                    <div class="flex items-center justify-center p-4">
+                        <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="ml-2">Loading students...</span>
+                    </div>
+                `;
+            }
+
+            // Update student list based on batch code
+            function updateStudentList() {
+                const selectedBatch = elements.batchCodeSelect.value;
+                if (!selectedBatch) {
+                    elements.batchStudentsSection.classList.add('hidden');
+                    elements.studentListDiv.innerHTML = '';
+                    elements.studentCountP.textContent = 'Total Students: 0';
+                    return;
+                }
+
+                showLoadingState();
+
+                // Fetch and display students using Promise instead of await
+                fetch(`/teacher/get-students-by-batch/?batchCode=${encodeURIComponent(selectedBatch)}`)
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        console.log('Received data:', data);
+                        const students = data.students || [];
+                        
+                        if (students.length === 0) {
+                            elements.studentListDiv.innerHTML = `
+                                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                    <p class="text-sm text-yellow-800">${data.message || 'No students found in this batch'}</p>
+                                </div>
+                            `;
+                            elements.studentCountP.textContent = 'Total Students: 0';
+                            return;
+                        }
+
+                        // Build student list HTML
+                        let studentListHTML = `
+                            <div class="mb-4 p-2 bg-blue-50 border border-blue-200 rounded">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="batchStudents" value="all" 
+                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
+                                    <span class="font-medium text-blue-700">Share with all students in this batch</span>
+                                </label>
+                            </div>
+                            <div class="mt-3 space-y-2 max-h-60 overflow-y-auto p-2">
+                        `;
+
+                        // Add each student to the list
+                        students.forEach(function(student) {
+                            studentListHTML += `
+                                <label class="flex items-center p-2 hover:bg-gray-50 rounded transition-colors">
+                                    <input type="checkbox" name="batchStudents" value="${student.student_code}" 
+                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3">
+                                    <div class="flex-1">
+                                        <div class="font-medium">${student.name}</div>
+                                        <div class="text-sm text-gray-500">ID: ${student.student_code}</div>
+                                    </div>
+                                </label>
+                            `;
+                        });
+
+                        studentListHTML += '</div>';
+                        elements.studentListDiv.innerHTML = studentListHTML;
+                        elements.studentCountP.textContent = `Total Students: ${students.length}`;
+
+                        // Set up checkbox behavior
+                        const selectAllCheckbox = elements.studentListDiv.querySelector('input[value="all"]');
+                        const studentCheckboxes = elements.studentListDiv.querySelectorAll('input[type="checkbox"]:not([value="all"])');
+
+                        if (selectAllCheckbox) {
+                            selectAllCheckbox.onchange = function() {
+                                const isChecked = this.checked;
+                                studentCheckboxes.forEach(function(cb) {
+                                    cb.checked = isChecked;
+                                });
+                            };
+                        }
+
+                        studentCheckboxes.forEach(function(checkbox) {
+                            checkbox.onchange = function() {
+                                if (selectAllCheckbox) {
+                                    selectAllCheckbox.checked = [...studentCheckboxes].every(function(cb) {
+                                        return cb.checked;
+                                    });
+                                }
+                            };
+                        });
+                    })
+                    .catch(function(error) {
+                        console.error('Error loading students:', error);
+                        elements.studentListDiv.innerHTML = `
+                            <div class="p-4 bg-red-50 border border-red-200 rounded-md">
+                                <p class="text-sm text-red-800">Error loading students. Please try again.</p>
+                            </div>
+                        `;
+                        elements.studentCountP.textContent = 'Total Students: 0';
+                    });
+            }
+
+            // Set up the batch code change listener
+            elements.batchCodeSelect.addEventListener('change', debounce(updateStudentList, 300));
+            
+            // Initial setup for student list updating
+            if (elements.batchCodeSelect.value) {
+                updateStudentList();
+            }
+
+            // Form submission with validation
+            elements.form.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                // Basic validations (client-side)
+                const requiredFields = [
+                    { id: 'teacherName', msg: 'Teacher Name is required.' },
+                    { id: 'teacherCode', msg: 'Teacher Code is required.' },
+                    { id: 'subject', msg: 'Subject is required.' },
+                    { id: 'topic', msg: 'Topic is required.' },
+                    { id: 'batchCode', msg: 'Batch Code is required.' },
+                    { id: 'fromDate', msg: 'From Date is required.' },
+                    { id: 'toDate', msg: 'To Date is required.' }
+                ];
+
+                for (const field of requiredFields) {
+                    const input = document.getElementById(field.id);
+                    if (!input.value.trim()) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Validation Error',
+                            text: field.msg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                        return;
+                    }
+                }
+
+                if (!elements.fileInput.files.length) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'A file is required.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+
+                // File type and size
+                const allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg'];
+                const fileExtension = elements.fileInput.files[0].name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExtension)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'Invalid file format. Allowed: PDF, DOC, DOCX, JPG, JPEG.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+
+                const maxSize = 1024 * 1024 * 1024; // 1GB in bytes
+                if (elements.fileInput.files[0].size > maxSize) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'File size exceeds 1GB limit.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+
+                // Date range
+                if (elements.fromDateInput.value > elements.toDateInput.value) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'From date cannot be later than To date.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+
+                // Students selection
+                const selectAllCheckbox = document.querySelector('input[name="batchStudents"][value="all"]');
+                const studentCheckboxes = document.querySelectorAll('input[name="batchStudents"]:checked:not([value="all"])');
+                
+                const selectAll = selectAllCheckbox ? selectAllCheckbox.checked : false;
+                const selected = studentCheckboxes;
+                
+                if (!selectAll && selected.length === 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'At least one student must be selected.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+
+                // Submit if all good
+                console.log('Submitting form with batchCode:', elements.batchCodeSelect.value);
+                elements.form.submit();
+            });
+
+            // Handle server messages with SweetAlert
+            const messages = document.querySelectorAll('[data-message]');
+            messages.forEach(message => {
+                const text = message.getAttribute('data-message');
+                const tags = message.getAttribute('data-tags');
+                if (tags === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: text,
+                        confirmButtonColor: '#10b981'
+                    });
+                } else if (tags === 'error') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: text,
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
+            });
+        });
+    </script>
+{% endblock %}

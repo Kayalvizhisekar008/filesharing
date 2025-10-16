@@ -1,0 +1,1744 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Batch Codes - File Sharing{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Manage Batch Codes</h1>
+        <p class="text-gray-600 mt-2">View and manage all batch codes</p>
+    </div>
+
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Add New Batch Code Form -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">Add New Batch Code</h2>
+        <form method="POST" action="{% url 'core:add_batchcode' %}" class="space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="batch_code" class="block text-sm font-medium text-gray-700 mb-1">Batch Code</label>
+                    <input type="text" id="batch_code" name="batch_code" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="class_name" class="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                    <input type="text" id="class_name" name="class_name" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="academic_year" class="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                    <input type="text" id="academic_year" name="academic_year" required placeholder="e.g., 2025-2026"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="branch" class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <select id="branch" name="branch" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Branch</option>
+                        <option value="Nehru nagar">Nehru nagar</option>
+                        <option value="Gandhipuram">Gandhipuram</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-4">
+               
+                <button type="button" onclick="openAddStudentDialog()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                    Individual Student
+                </button>
+                <button type="button" onclick="openBulkUploadDialog()" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                    Bulk Upload
+                </button>
+                <button type="button" onclick="openTransferDialog()" class="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                    Transfer Student
+                </button>
+                <button type="button" onclick="showBatchSummary()" class="bg-yellow-600 text-white px-6 py-2 rounded-lg hover:bg-yellow-700 transition-colors inline-flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    View All Batches
+                </button>
+
+
+            </div>
+        </form>
+    </div>
+
+    <!-- Data Tables Container -->
+    <div class="grid grid-cols-1 gap-8 mt-8">
+        <!-- Recent Batches Table -->
+        <div class="bg-white rounded-lg shadow-md">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">Recently Added Batches</h2>
+                <button onclick="refreshBatchTable()" class="text-blue-600 hover:text-blue-800">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch Code</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Year</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentBatchesTable" class="bg-white divide-y divide-gray-200">
+                        <!-- Batch data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Students Table -->
+        <!-- div class="bg-white rounded-lg shadow-md">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">Recently Added Students</h2>
+                <button onclick="refreshStudentTable()" class="text-blue-600 hover:text-blue-800">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollment</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentStudentsTable" class="bg-white divide-y divide-gray-200">
+                        Student data will be populated here -->
+                    <!-- </tbody>
+                </table>
+            </div>
+        </div>
+    </div> 
+
+    <!-- Transfer Student Dialog -->
+    <!-- <div class="bg-white rounded-lg shadow-md mt-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800">Recently Added Batches</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch Code</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Year</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="recentBatchesTable" class="bg-white divide-y divide-gray-200">
+                    <!-- Batch data will be populated here via JavaScript -->
+                <!-- </tbody>
+            </table>
+        </div>
+    </div>  -->
+
+    <!-- Transfer Student Dialog -->
+    <div id="transferDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Transfer Student</h3>
+            <form method="POST" action="{% url 'core:transfer_student' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text -sm font-medium text-gray-700 mb-1">From Batch Code</label>
+                    <select name="from_batch" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select From Batch</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.batch_code }}">{{ batch.batch_code }} - {{ batch.class_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">To Batch Code</label>
+                    <select name="to_batch" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select To Batch</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.batch_code }}">{{ batch.batch_code }} - {{ batch.class_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Transfer Date</label>
+                    <input type="date" name="transfer_date" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                    <select name="student_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select Student</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                    <textarea name="remarks" rows="3" placeholder="Enter reason for transfer"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                </div>
+                <div class="flex justify-between">
+                    <button type="button" onclick="closeTransferDialog()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        Close
+                    </button>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Transfer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Individual Student Dialog -->
+    <div id="addStudentDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Add Individual Student</h3>
+            <form id="individualForm" method="POST" action="{% url 'core:add_individual_student' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Enrollment Number</label>
+                    <input type="text" name="enrollment" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Batch Code</label>
+                    <input type="text" name="batch_code" required placeholder="Enter Batch Code"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                    <input type="text" name="student_name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                    <input type="text" name="class_name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex justify-between">
+                    <button type="button" onclick="closeAddStudentDialog()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        Close
+                    </button>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Add Student
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+   
+
+    <!-- Batch Summary Dialog -->
+    <div id="batchSummaryDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-gray-800">Batch Overview</h3>
+                <button type="button" onclick="closeBatchSummaryDialog()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Search Box -->
+            <div class="mb-4 relative">
+                <input type="text" id="batchSearchInput" 
+                       placeholder="Search batches or students..." 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pl-10">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Content Container with Tabs -->
+            <div class="flex space-x-4 mb-4">
+                <button onclick="showBatchList()" id="batchListTab" 
+                        class="px-4 py-2 font-medium text-sm rounded-lg bg-blue-100 text-blue-800">
+                    Batch List
+                </button>
+                <button onclick="showStudentList()" id="studentListTab" 
+                        class="px-4 py-2 font-medium text-sm rounded-lg text-gray-600 hover:bg-gray-100">
+                    Student List
+                </button>
+            </div>
+
+            <!-- Scrollable Content Area -->
+            <div class="overflow-y-auto" style="max-height: 60vh;">
+                <!-- Batch List View -->
+                <div id="batchListView" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch Code</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Class</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Students</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchSummaryBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Batch data will be populated here with delete action -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Student List View (Initially Hidden) -->
+                <div id="studentListView" class="hidden overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Enrollment</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Class</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Password</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentListBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Student data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Dialog -->
+    <div id="bulkUploadDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Bulk Upload Students</h3>
+            <form id="bulkForm" method="POST" action="{% url 'core:bulk_upload_students' %}" class="space-y-4" enctype="multipart/form-data" onsubmit="return false;">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Excel File</label>
+                        <input type="file" name="excel_file" accept=".xlsx, .xls" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="text-sm text-gray-500 mt-2">
+                    <p class="mb-2">Note: Upload an Excel file with the following columns:</p>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Enrollment Number</li>
+                        <li>Batch Code</li>
+                        <li>Student Name</li>
+                        <li>Class</li>
+                    </ul>
+                    <div class="mt-3">
+                        <a href="{% url 'core:download_format' format_type='bulk' %}" class="text-blue-600 hover:text-blue-800 underline">
+                            Download Sample Excel Format
+                        </a>
+                    </div>
+                </div>
+                <div id="bulkUploadProgress" class="mt-4 text-sm text-blue-600 font-medium hidden"></div>
+                <div class="flex justify-between mt-4">
+                    <button type="button" onclick="closeBulkUploadDialog()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        Close
+                    </button>
+                    <button type="button" onclick="return validateBulkForm()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                        Add Students
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% block javascript %}
+    <script>
+        // Data Storage
+        window.batchData = [];
+        window.studentData = [];
+        window.recentlyAddedBatch = null;
+        
+        // Function to refresh both tables
+        function refreshTables() {
+            refreshBatchTable();
+            refreshStudentTable();
+        }
+
+        // Function to refresh batch table
+        async function refreshBatchTable() {
+            try {
+                const summaryResponse = await fetch('{% url "core:batch_summary" %}');
+                if (!summaryResponse.ok) {
+                    throw new Error(`HTTP error! status: ${summaryResponse.status}`);
+                }
+                
+                const summaryData = await summaryResponse.json();
+                if (summaryData.status === 'success') {
+                    // Store all batch data globally
+                    window.batchData = summaryData.data.map(batch => ({
+                        id: String(batch.id || ''),
+                        batch_code: String(batch.batch_code || 'N/A'),
+                        class_name: String(batch.class_name || 'N/A'),
+                        academic_year: String(batch.academic_year || 'N/A'),
+                        branch: String(batch.branch || 'N/A'),
+                        student_count: batch.student_count || 0
+                    }));
+                    // Display only the recent batches
+                    const recentBatches = window.batchData.slice(0, 5);
+                    displayRecentBatches(recentBatches);
+                } else {
+                    throw new Error(summaryData.message || 'Failed to load batch data');
+                }
+            } catch (error) {
+                console.error('Error loading recent batches:', error);
+                await Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to load batch data. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        }
+
+        // Function to refresh student table
+        async function refreshStudentTable() {
+            try {
+                // If we have a recently added batch, show its students
+                if (window.recentlyAddedBatch) {
+                    const studentResponse = await fetch(`{% url "core:get_students_by_batch" %}?batch_id=${window.recentlyAddedBatch}`);
+                    if (!studentResponse.ok) {
+                        throw new Error(`HTTP error! status: ${studentResponse.status}`);
+                    }
+                    const studentData = await studentResponse.json();
+                    if (studentData.students) {
+                        displayRecentStudents(studentData.students.slice(0, 5)); // Show 5 most recent students
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading recent students:', error);
+                await Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to load student data. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        }
+
+        // Function to load and display recent batches
+        async function loadRecentBatches() {
+            try {
+                const batchResponse = await fetch('{% url "core:batch_summary" %}');
+                if (!batchResponse.ok) {
+                    throw new Error(`HTTP error! status: ${batchResponse.status}`);
+                }
+                const batchData = await batchResponse.json();
+                if (batchData.status === 'success') {
+                    const recentBatches = batchData.data.slice(0, 5); // Get 5 most recent batches
+                    displayRecentBatches(recentBatches);
+                } else {
+                    throw new Error(batchData.message || 'Failed to load batch data');
+                }
+            } catch (error) {
+                console.error('Error loading recent batches:', error);
+                await Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to load batch data. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        }
+
+        // Function to display recent students
+        function displayRecentStudents(students) {
+            const tbody = document.getElementById('recentStudentsTable');
+            if (!tbody) {
+                console.log('Recent students table not found in the DOM');
+                return;
+            }
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(students)) {
+                console.error('Invalid student data:', students);
+                return;
+            }
+
+            students.forEach(student => {
+                const safeData = {
+                    id: String(student.id || ''),
+                    name: String(student.name || 'N/A'),
+                    student_code: String(student.student_code || 'N/A'),
+                    batch: String(student.batch || 'N/A'),
+                    class_name: String(student.class_name || 'N/A')
+                };
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        ${escapeHtml(safeData.name)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(safeData.student_code)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(safeData.batch)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(safeData.class_name)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="deleteStudent('${escapeHtml(safeData.id)}', '${escapeHtml(safeData.name)}')"
+                                class="text-red-600 hover:text-red-900">
+                            Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Function to display recent batches
+        function displayRecentBatches(batches) {
+            const tbody = document.getElementById('recentBatchesTable');
+            tbody.innerHTML = '';
+
+            batches.forEach(batch => {
+                // Ensure batch.id exists and convert to string
+                if (!batch.id) {
+                    console.error('Batch missing ID:', batch);
+                    return;
+                }
+
+                const safeData = {
+                    id: String(batch.id),  // Required field - no fallback
+                    batch_code: String(batch.batch_code || 'N/A'),
+                    class_name: String(batch.class_name || 'N/A'),
+                    academic_year: String(batch.academic_year || 'N/A'),
+                    branch: String(batch.branch || 'N/A'),
+                    student_count: parseInt(batch.student_count || 0)
+                };
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        ${escapeHtml(safeData.batch_code)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(safeData.class_name)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(safeData.academic_year)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(safeData.branch)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${safeData.student_count} students
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="showBatchDetails('${escapeHtml(safeData.id)}')" 
+                                    class="text-blue-600 hover:text-blue-900">
+                                View Details
+                            </button>
+                            <button onclick="deleteBatch('${escapeHtml(safeData.id)}', '${escapeHtml(safeData.batch_code)}')"
+                                    class="text-red-600 hover:text-red-900">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Handle new batch form submission
+            document.querySelector('form[action="{% url "core:add_batchcode" %}"]').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                try {
+                    const formData = new FormData(this);
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    
+                    const response = await fetch('{% url "core:add_batchcode" %}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        await Swal.fire({
+                            title: 'Success!',
+                            text: data.message || 'Batch has been added successfully.',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                        
+                        this.reset();
+                        await loadRecentBatches();
+                    } else {
+                        throw new Error(data.message || 'Failed to add batch');
+                    }
+                } catch (error) {
+                    console.error('Error adding batch:', error);
+                    await Swal.fire({
+                        title: 'Error!',
+                        text: error.message || 'Failed to add batch. Please try again.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            });
+
+        // Initialize form handlers for individual student addition
+        document.getElementById('individualForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate form data
+            const form = this;
+            const enrollment = form.querySelector('[name="enrollment"]').value.trim();
+            const batchCode = form.querySelector('[name="batch_code"]').value.trim();
+            const studentName = form.querySelector('[name="student_name"]').value.trim();
+            const className = form.querySelector('[name="class_name"]').value.trim();
+
+            if (!enrollment || !batchCode || !studentName || !className) {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'All fields are required',
+                    icon: 'error'
+                });
+                return;
+            }
+
+            // Show loading state
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Adding...';
+
+            const formData = new FormData(form);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            fetch('{% url "core:add_individual_student" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'include'
+            })
+            .then(async response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const jsonData = await response.json();
+                    return { status: response.status, data: jsonData };
+                }
+                const textData = await response.text();
+                return { status: response.status, data: { message: textData } };
+            })
+            .then(({ status, data }) => {
+                if (status === 200 || (data && data.success)) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message || 'Student added successfully',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    });
+                    
+                    // Reset form and close dialog
+                    form.reset();
+                    closeAddStudentDialog();
+                    
+                    // Refresh tables
+                    refreshTables();
+                } else {
+                    throw new Error(data.error || data.message || 'Failed to add student');
+                }
+            })
+            .catch(error => {
+                console.error('Error adding student:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to add student. Please check the form and try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            })
+            .finally(() => {
+                // Reset button state
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+
+        // Load tables when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshTables();
+        });
+
+        // Dialog Management Functions
+        function openAddStudentDialog() {
+            document.getElementById('addStudentDialog').classList.remove('hidden');
+        }
+
+        function closeAddStudentDialog() {
+            document.getElementById('addStudentDialog').classList.add('hidden');
+            document.getElementById('individualForm').reset();
+        }
+
+        function openBulkUploadDialog() {
+            document.getElementById('bulkUploadDialog').classList.remove('hidden');
+        }
+
+        function closeBulkUploadDialog() {
+            document.getElementById('bulkUploadDialog').classList.add('hidden');
+            document.getElementById('bulkForm').reset();
+        }
+
+        function openTransferDialog() {
+            document.getElementById('transferDialog').classList.remove('hidden');
+            // Set default transfer date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelector('input[name="transfer_date"]').value = today;
+        }
+
+        function closeTransferDialog() {
+            document.getElementById('transferDialog').classList.add('hidden');
+            document.querySelector('form[action="{% url "core:transfer_student" %}"]').reset();
+        }
+
+        // Batch Summary Functions
+        function showBatchSummary() {
+            document.getElementById('batchSummaryDialog').classList.remove('hidden');
+            fetchBatchSummary();
+        }
+
+        function closeBatchSummaryDialog() {
+            document.getElementById('batchSummaryDialog').classList.add('hidden');
+            document.getElementById('batchSearchInput').value = '';
+            showBatchList();
+        }
+
+        // Search and Filter Functions
+        document.getElementById('batchSearchInput').addEventListener('input', function() {
+            if (document.getElementById('batchListView').classList.contains('hidden')) {
+                displayStudentList(filterData(window.studentData));
+            } else {
+                displayBatchList(filterData(window.batchData));
+            }
+        });
+
+        function filterData(data) {
+            const searchTerm = document.getElementById('batchSearchInput').value.toLowerCase();
+            if (!searchTerm) return data;
+
+            return data.filter(item => {
+                return Object.values(item).some(value => 
+                    String(value).toLowerCase().includes(searchTerm)
+                );
+            });
+        } 
+
+        // View Management Functions
+        function showBatchList() {
+            document.getElementById('batchListView').classList.remove('hidden');
+            document.getElementById('studentListView').classList.add('hidden');
+            document.getElementById('batchListTab').classList.add('bg-blue-100', 'text-blue-800');
+            document.getElementById('studentListTab').classList.remove('bg-blue-100', 'text-blue-800');
+            displayBatchList(filterData(window.batchData));
+        }
+
+        function showStudentList() {
+            document.getElementById('batchListView').classList.add('hidden');
+            document.getElementById('studentListView').classList.remove('hidden');
+            document.getElementById('studentListTab').classList.add('bg-blue-100', 'text-blue-800');
+            document.getElementById('batchListTab').classList.remove('bg-blue-100', 'text-blue-800');
+            displayStudentList(filterData(window.studentData));
+        }
+
+        // HTML escaping function
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Display Functions
+        function displayBatchList(batches) {
+            const tbody = document.getElementById('batchSummaryBody');
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(batches)) {
+                console.error('Invalid batch data:', batches);
+                return;
+            }
+            
+            batches.forEach(batch => {
+                if (!batch || !batch.id) {
+                    console.error('Invalid batch:', batch);
+                    return;
+                }
+                
+                const row = document.createElement('tr');
+                const safeData = {
+                    id: batch.id || '',
+                    batch_code: batch.batch_code || 'N/A',
+                    class_name: batch.class_name || 'N/A',
+                    student_count: batch.student_count || 0
+                };
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${escapeHtml(safeData.batch_code)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${escapeHtml(safeData.class_name)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${safeData.student_count} students</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div class="flex space-x-2">
+                            <button type="button" onclick="showBatchDetails('${escapeHtml(safeData.id)}')" 
+                                    class="text-blue-600 hover:text-blue-800 px-3 py-1 rounded">
+                                View Details
+                            </button>
+                            <button type="button" onclick="deleteBatch('${escapeHtml(safeData.id)}', '${escapeHtml(safeData.batch_code)}')"
+                                    class="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 transition-all duration-200 flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function displayStudentList(students) {
+            const tbody = document.getElementById('studentListBody');
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(students)) {
+                console.error('Invalid student data:', students);
+                return;
+            }
+
+            students.forEach(student => {
+                const row = document.createElement('tr');
+                
+                // Create safe data object with string conversions
+                const safeData = {
+                    id: String(student.id || ''),
+                    name: String(student.name || 'N/A'),
+                    student_code: String(student.student_code || 'N/A'),
+                    batch: String(student.batch || 'N/A'),
+                    class_name: String(student.class_name || 'N/A'),
+                    username: String(student.username || student.student_code || 'N/A'),
+                    // Default password to student code if not set
+                    password: String(student.student_code || '********')
+                };
+                
+                // Log for debugging
+                console.log('Student data:', {
+                    id: safeData.id,
+                    name: safeData.name,
+                    student_code: safeData.student_code,
+                    password: safeData.password
+                });
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${escapeHtml(safeData.name)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${escapeHtml(safeData.student_code)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${escapeHtml(safeData.batch)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${escapeHtml(safeData.class_name)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${escapeHtml(safeData.username)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center space-x-2">
+                            <div class="relative flex-grow">
+                                <span class="text-sm text-gray-500 password-field cursor-pointer" 
+                                      id="password-${escapeHtml(safeData.id)}" 
+                                      onclick="editPassword('${escapeHtml(safeData.id)}', '${escapeHtml(safeData.username)}')">••••••••</span>
+                                <input type="text" 
+                                       class="hidden absolute inset-0 w-full text-sm border-gray-300 rounded-md"
+                                       id="password-input-${escapeHtml(safeData.id)}"
+                                       data-student-id="${escapeHtml(safeData.id)}"
+                                       onkeydown="handlePasswordKeydown(event, this)"
+                                       onblur="handlePasswordBlur(this)">
+                            </div>
+                            <button onclick="togglePasswordVisibility(this)" 
+                                    class="text-blue-600 hover:text-blue-800 focus:outline-none"
+                                    data-showing="false"
+                                    data-password="${escapeHtml(safeData.student_code)}"
+                                    data-student-id="${escapeHtml(safeData.id)}">
+                                <svg class="w-4 h-4 show-password-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                <svg class="w-4 h-4 hide-password-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap flex space-x-2">
+                        <button onclick="editStudentCredentials('${escapeHtml(safeData.id)}')"
+                                class="text-blue-600 hover:text-blue-800 px-3 py-1 rounded flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Edit
+                        </button>
+                        <button onclick="deleteStudent('${escapeHtml(safeData.id)}', '${escapeHtml(safeData.name)}')"
+                                class="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 transition-all duration-200 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                </path>
+                            </svg>
+                            Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Data Loading Functions
+        function showBatchSummary() {
+            document.getElementById('batchSummaryDialog').classList.remove('hidden');
+            fetchBatchSummary();
+        }
+
+        function closeBatchSummaryDialog() {
+            document.getElementById('batchSummaryDialog').classList.add('hidden');
+        }
+
+        async function fetchBatchSummary() {
+            try {
+                const response = await fetch('{% url "core:batch_summary" %}');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    // Store the complete batch data including IDs
+                    window.batchData = data.data.map(batch => {
+                        // Ensure all properties exist and are properly formatted
+                        return {
+                            id: String(batch.id), // Convert ID to string for consistent comparison
+                            batch_code: batch.batch_code || '',
+                            class_name: batch.class_name || '',
+                            academic_year: batch.academic_year || '',
+                            branch: batch.branch || '',
+                            student_count: parseInt(batch.student_count || 0)
+                        };
+                    });
+                    console.log('Loaded batch data:', window.batchData); // Debug log
+                    displayBatchList(window.batchData);
+                } else {
+                    console.error('Error loading batch summary:', data.message);
+                    alert('Error loading batch summary: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading batch summary');
+            }
+        }
+
+        async function showBatchDetails(batchId) {
+            try {
+                if (!batchId || batchId === 'undefined' || batchId === 'null') {
+                    console.error('Invalid batch ID:', batchId);
+                    throw new Error('No batch ID provided');
+                }
+
+                // Ensure we have batch data
+                if (!window.batchData || window.batchData.length === 0) {
+                    // Load batch data first
+                    const batchResponse = await fetch('{% url "core:batch_summary" %}');
+                    if (!batchResponse.ok) {
+                        throw new Error(`HTTP error! status: ${batchResponse.status}`);
+                    }
+                    const batchData = await batchResponse.json();
+                    if (batchData.status === 'success' && Array.isArray(batchData.data)) {
+                        window.batchData = batchData.data.map(batch => {
+                            if (!batch.id) {
+                                console.error('Batch missing ID:', batch);
+                                return null;
+                            }
+                            return {
+                                id: String(batch.id),  // Required field
+                                batch_code: String(batch.batch_code || 'N/A'),
+                                class_name: String(batch.class_name || 'N/A'),
+                                academic_year: String(batch.academic_year || 'N/A'),
+                                branch: String(batch.branch || 'N/A'),
+                                student_count: parseInt(batch.student_count || 0)
+                            };
+                        }).filter(batch => batch !== null);  // Remove any invalid batches
+                    } else {
+                        throw new Error('Invalid batch data received from server');
+                    }
+                }
+
+                // Clean and validate the batchId
+                const cleanBatchId = String(batchId).trim();
+                if (!cleanBatchId) {
+                    throw new Error('Invalid batch ID format');
+                }
+
+                // Find the batch in our stored data
+                const batch = window.batchData.find(b => String(b.id) === cleanBatchId);
+                if (!batch) {
+                    console.error('Batch not found:', { batchId: cleanBatchId, availableBatches: window.batchData });
+                    throw new Error(`Batch with ID ${cleanBatchId} not found`);
+                }
+
+                // Fetch students for this batch
+                const response = await fetch(`{% url "core:get_students_by_batch" %}?batch_id=${encodeURIComponent(cleanBatchId)}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch students: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                
+                if (data.status === 'error') {
+                    throw new Error(data.message || 'Failed to load student data');
+                }
+
+                // Validate and process student data
+                if (Array.isArray(data.students)) {
+                    // Store and display student data
+                    window.studentData = data.students
+                        .filter(student => student && student.id) // Filter out invalid students
+                        .map(student => ({
+                            id: String(student.id),
+                            name: String(student.name || 'N/A'),
+                            student_code: String(student.student_code || 'N/A'),
+                            batch: String(student.batch || 'N/A'),
+                            class_name: String(student.class_name || 'N/A'),
+                            batch_id: cleanBatchId,  // Store the batch ID with each student
+                            username: String(student.username || student.student_code || 'N/A'),
+                            password: String(student.password || student.student_code || '') // Using password from server or student_code as fallback
+                        }));
+                    console.log(`Loaded ${window.studentData.length} students for batch ${cleanBatchId}`);
+                    showStudentList();
+                } else {
+                    console.log(`No students found for batch ${cleanBatchId}`);
+                    window.studentData = [];
+                    showStudentList();
+                }
+            } catch (error) {
+                console.error('Error loading batch details:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to load batch details. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        }
+
+        // Dialog Management Functions
+        function openBatchSummaryDialog() {
+            document.getElementById('batchSummaryDialog').classList.remove('hidden');
+            fetchBatchSummary();
+        }
+
+        function closeBatchSummaryDialog() {
+            document.getElementById('batchSummaryDialog').classList.add('hidden');
+            // Reset the search and view state
+            document.getElementById('batchSearchInput').value = '';
+            showBatchList();
+        }
+
+        function openAddStudentDialog() {
+            document.getElementById('addStudentDialog').classList.remove('hidden');
+        }
+
+        function closeAddStudentDialog() {
+            document.getElementById('addStudentDialog').classList.add('hidden');
+        }
+
+        function openBulkUploadDialog() {
+            document.getElementById('bulkUploadDialog').classList.remove('hidden');
+            const form = document.getElementById('bulkForm');
+            form.reset();
+        }
+
+        function closeBulkUploadDialog() {
+            document.getElementById('bulkUploadDialog').classList.add('hidden');
+        }
+
+        function openTransferDialog() {
+            document.getElementById('transferDialog').classList.remove('hidden');
+            document.querySelector('#transferDialog form').reset();
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelector('input[name="transfer_date"]').value = today;
+        }
+
+        function closeTransferDialog() {
+            document.getElementById('transferDialog').classList.add('hidden');
+        }
+
+        // Delete Batch Function
+        function deleteBatch(batchId, batchCode) {
+            if (!batchId || !batchCode) {
+                console.error('Missing batch information:', { batchId, batchCode });
+                return;
+            }
+
+            const deleteDialog = document.createElement('div');
+            deleteDialog.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+            
+            const safeBatchCode = escapeHtml(String(batchCode));
+            const safeBatchId = escapeHtml(String(batchId));
+            
+            deleteDialog.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                    <h3 class="text-lg font-semibold mb-4">Delete Batch</h3>
+                    <p class="mb-4">Are you sure you want to delete batch ${safeBatchCode}?<br>
+                    <span class="text-red-600">This will also delete all students in this batch.</span></p>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Deletion</label>
+                        <textarea id="batchDeleteReason" rows="3" placeholder="Enter reason for deleting batch"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="this.closest('.fixed').remove()" 
+                                class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="button" onclick="confirmBatchDelete('${safeBatchId}', this.closest('.fixed').querySelector('#batchDeleteReason').value)" 
+                                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                            Delete Batch
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(deleteDialog);
+        }
+
+        async function confirmBatchDelete(batchId, reason) {
+            if (!batchId) {
+                console.error('No batch ID provided');
+                return;
+            }
+            try {
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                // Using the Django URL template tag to get the correct URL
+                const response = await fetch("{% url 'core:delete_batchcode' 999999 %}".replace('999999', batchId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        reason: reason
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    // Remove the dialog
+                    document.querySelector('.fixed').remove();
+                    // Refresh the batch list
+                    fetchBatchSummary();
+                } else {
+                    alert('Error deleting batch: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error deleting batch. Please try again.');
+            }
+        }
+
+        // Delete Student Functions
+        function deleteStudent(studentId, studentName) {
+            if (!studentId || !studentName) {
+                console.error('Missing student information:', { studentId, studentName });
+                return;
+            }
+
+            const deleteDialog = document.createElement('div');
+            deleteDialog.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+            
+            const safeName = escapeHtml(studentName);
+            const safeId = escapeHtml(String(studentId));
+            
+            deleteDialog.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                    <h3 class="text-lg font-semibold mb-4">Delete Student</h3>
+                    <p class="mb-4">Are you sure you want to delete ${safeName}?</p>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Deletion</label>
+                        <textarea id="deleteReason" rows="3" placeholder="Enter reason for deleting student"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="this.closest('.fixed').remove()" 
+                                class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="button" onclick="confirmDelete(this, '${safeId}', this.closest('.fixed').querySelector('#deleteReason'))" 
+                                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(deleteDialog);
+            return false;
+        }
+
+        function confirmDelete(button, studentId, reasonTextarea) {
+            if (!studentId) {
+                console.error('No student ID provided');
+                return;
+            }
+
+            const dialog = button.closest('.fixed');
+            const reason = reasonTextarea.value;
+
+            dialog.remove();
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('delete_reason', reason);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            // Send delete request
+            fetch(`{% url 'core:delete_student' '000' %}`.replace('000', studentId), {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Remove student from the list and refresh current view
+                    if (window.studentData) {
+                        window.studentData = window.studentData.filter(s => s.id != studentId);
+                        displayStudentList(filterData(window.studentData));
+                    }
+                    // Also refresh batch data as student count might have changed
+                    fetchBatchSummary();
+                } else {
+                    alert('Error deleting student: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting student. Please try again.');
+            });
+        }
+
+        // Bulk Upload Processing
+        async function validateBulkForm() {
+            const progressMessage = document.getElementById('bulkUploadProgress') || createProgressElement();
+            try {
+                const form = document.getElementById('bulkForm');
+                const fileInput = form.querySelector('input[name="excel_file"]');
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                if (!fileInput.files || !fileInput.files[0]) {
+                    await Swal.fire({
+                        title: 'Error!',
+                        text: 'Please select an Excel file to upload.',
+                        icon: 'error'
+                    });
+                    return false;
+                }
+
+                const file = fileInput.files[0];
+                const fileExt = file.name.split('.').pop().toLowerCase();
+                
+                if (!['xlsx', 'xls'].includes(fileExt)) {
+                    await Swal.fire({
+                        title: 'Error!',
+                        text: 'Please upload a valid Excel file (.xlsx or .xls)',
+                        icon: 'error'
+                    });
+                    return false;
+                }
+
+                progressMessage.classList.remove('hidden');
+                progressMessage.textContent = 'Uploading and processing Excel file...';
+
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', csrfToken);
+                formData.append('excel_file', file);
+                
+                const response = await fetch('{% url "core:bulk_upload_students" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Permission denied. Please log in again.');
+                    }
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
+                let responseData;
+                const contentType = response.headers.get('content-type');
+                
+                try {
+                    // First try to get the raw text
+                    const text = await response.text();
+                    
+                    // Check for session errors or redirects
+                    if (text.includes('SessionInterrupted') || 
+                        text.includes('session has expired') || 
+                        text.toLowerCase().includes('login required')) {
+                        await Swal.fire({
+                            title: 'Session Expired',
+                            text: 'Your session has expired. Please log in again.',
+                            icon: 'warning',
+                            showCancelButton: false,
+                            confirmButtonText: 'Log In'
+                        });
+                        window.location.href = "{% url 'core:login' %}";
+                        return false;
+                    }
+                    
+                    // Try to parse as JSON
+                    try {
+                        responseData = JSON.parse(text);
+                    } catch {
+                        throw new Error('Server returned invalid response format');
+                    }
+                } catch (error) {
+                    console.error('Response parsing error:', error);
+                    throw error;
+                }
+
+                const data = await response.json();
+                
+                if (responseData.status === 'success' || responseData.status === 'partial_success') {
+                    let message = responseData.message;
+                    if (responseData.errors && responseData.errors.length > 0) {
+                        message += '\n\nErrors encountered:';
+                        responseData.errors.forEach(error => {
+                            message += '\n- ' + error;
+                        });
+                    }
+                    
+                    await Swal.fire({
+                        title: responseData.status === 'success' ? 'Success!' : 'Partial Success',
+                        text: message,
+                        icon: responseData.status === 'success' ? 'success' : 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    
+                    closeBulkUploadDialog();
+                    await refreshTables();
+                } else {
+                    throw new Error(responseData.message || 'Error uploading file');
+                }
+
+                if (progressMessage) {
+                    progressMessage.textContent = responseData.message || 'Upload complete';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                const errorMessage = error.message || 'Error uploading file. Please try again.';
+                
+                // Check if it's a session error
+                if (errorMessage.includes('session')) {
+                    await Swal.fire({
+                        title: 'Session Error',
+                        text: 'Your session has expired. The page will refresh to restore your session.',
+                        icon: 'warning',
+                        confirmButtonText: 'Refresh Page'
+                    });
+                    window.location.reload();
+                    return false;
+                }
+                
+                await Swal.fire({
+                    title: 'Error!',
+                    text: errorMessage,
+                    icon: 'error'
+                });
+                
+                if (progressMessage) {
+                    progressMessage.textContent = 'Upload failed. Please try again.';
+                }
+            }
+            return false;
+        }
+
+            // Process bulk upload students
+        async function processBulkUpload(enrollments, names, batchCode, className, index) {
+            const progressMessage = document.getElementById('bulkUploadProgress') || createProgressElement();
+
+            try {
+                if (index >= enrollments.length) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'All students have been processed successfully!',
+                        icon: 'success'
+                    }).then(() => {
+                        closeBulkUploadDialog();
+                        refreshTables();
+                    });
+                    return;
+                }
+
+                progressMessage.classList.remove('hidden');
+                progressMessage.textContent = `Processing student ${index + 1} of ${enrollments.length}...`;
+
+                const formData = new FormData();
+                formData.append('enrollment', enrollments[index].trim());
+                formData.append('student_name', names[index].trim());
+                formData.append('batch_code', batchCode);
+                formData.append('class_name', className);
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+                const response = await fetch('{% url "core:add_individual_student" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Wait a short time before processing next student
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await processBulkUpload(enrollments, names, batchCode, className, index + 1);
+                } else {
+                    throw new Error(`Error adding student ${names[index]}: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: `Error processing student ${names[index]}: ${error.message}`,
+                    icon: 'error',
+                    showCancelButton: true,
+                    confirmButtonText: 'Continue with next',
+                    cancelButtonText: 'Stop processing'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        processBulkUpload(enrollments, names, batchCode, className, index + 1);
+                    } else {
+                        progressMessage.textContent = 'Upload stopped due to error.';
+                    }
+                });
+            }
+        }        // Create progress display element
+        function createProgressElement() {
+            const progressDiv = document.createElement('div');
+            progressDiv.id = 'bulkUploadProgress';
+            progressDiv.className = 'mt-4 text-sm text-blue-600 font-medium';
+            document.querySelector('#bulkForm').appendChild(progressDiv);
+            return progressDiv;
+        }
+
+        // Password Visibility and Edit Management
+        function togglePasswordVisibility(button) {
+            const studentId = button.getAttribute('data-student-id');
+            const passwordSpan = document.getElementById(`password-${studentId}`);
+            const password = button.getAttribute('data-password');
+            const isShowing = button.getAttribute('data-showing') === 'true';
+            const showIcon = button.querySelector('.show-password-icon');
+            const hideIcon = button.querySelector('.hide-password-icon');
+            
+            if (!password) {
+                console.error('No password data available for student:', studentId);
+                return;
+            }
+            
+            if (!isShowing) {
+                // Show password
+                console.log('Showing password for student:', studentId, password);
+                passwordSpan.textContent = password;
+                showIcon.classList.add('hidden');
+                hideIcon.classList.remove('hidden');
+                button.setAttribute('data-showing', 'true');
+                
+                // Automatically hide after 5 seconds
+                setTimeout(() => {
+                    if (button.getAttribute('data-showing') === 'true') {
+                        passwordSpan.textContent = '••••••••';
+                        hideIcon.classList.add('hidden');
+                        showIcon.classList.remove('hidden');
+                        button.setAttribute('data-showing', 'false');
+                    }
+                }, 5000);
+            } else {
+                // Hide password
+                console.log('Hiding password for student:', studentId);
+                passwordSpan.textContent = '••••••••';
+                hideIcon.classList.add('hidden');
+                showIcon.classList.remove('hidden');
+                button.setAttribute('data-showing', 'false');
+            }
+        }
+
+        // Password Edit Functions
+        function editPassword(studentId, username) {
+            const passwordSpan = document.getElementById(`password-${studentId}`);
+            const passwordInput = document.getElementById(`password-input-${studentId}`);
+            
+            // Show input field
+            passwordSpan.classList.add('hidden');
+            passwordInput.classList.remove('hidden');
+            passwordInput.value = '';  // Clear any previous value
+            passwordInput.placeholder = 'Enter new password';
+            passwordInput.focus();
+        }
+
+        function handlePasswordKeydown(event, input) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                updatePassword(input);
+            } else if (event.key === 'Escape') {
+                cancelPasswordEdit(input);
+            }
+        }
+
+        function handlePasswordBlur(input) {
+            // Small delay to allow for Enter key processing
+            setTimeout(() => {
+                cancelPasswordEdit(input);
+            }, 200);
+        }
+
+        function cancelPasswordEdit(input) {
+            const studentId = input.getAttribute('data-student-id');
+            const passwordSpan = document.getElementById(`password-${studentId}`);
+            
+            input.classList.add('hidden');
+            passwordSpan.classList.remove('hidden');
+        }
+
+        async function updatePassword(input) {
+            const studentId = input.getAttribute('data-student-id');
+            const newPassword = input.value.trim();
+            const passwordSpan = document.getElementById(`password-${studentId}`);
+            
+            if (!newPassword) {
+                cancelPasswordEdit(input);
+                return;
+            }
+
+            try {
+                const response = await fetch(`{% url 'core:update_student_credentials' "0" %}`.replace('0', studentId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        password: newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Update the student data in memory
+                    const studentIndex = window.studentData.findIndex(s => String(s.id) === String(studentId));
+                    if (studentIndex !== -1) {
+                        window.studentData[studentIndex].password = newPassword;
+                    }
+
+                    // Update the button's data-password attribute and show success message
+                    const button = passwordSpan.nextElementSibling;
+                    button.setAttribute('data-password', newPassword);
+                    
+                    // Update the display in the table
+                    passwordSpan.textContent = '••••••••';
+                    
+                    // Refresh the student list to show updated data
+                    displayStudentList(filterData(window.studentData));
+                    
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Password updated successfully',
+                        icon: 'success',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                } else {
+                    throw new Error(data.message || 'Failed to update password');
+                }
+            } catch (error) {
+                console.error('Error updating password:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Failed to update password',
+                    icon: 'error',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            } finally {
+                input.value = '';
+                cancelPasswordEdit(input);
+            }
+        }
+
+        function editStudentCredentials(studentId) {
+            const student = window.studentData.find(s => String(s.id) === String(studentId));
+            if (!student) return;
+
+            Swal.fire({
+                title: 'Edit Student Credentials',
+                html: `
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input id="student-username" type="text" value="${escapeHtml(student.username || student.student_code)}" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                            <input id="student-password" type="password" placeholder="Enter new password" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Save Changes',
+                cancelButtonText: 'Cancel',
+                preConfirm: () => {
+                    return {
+                        username: document.getElementById('student-username').value,
+                        password: document.getElementById('student-password').value
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const { username, password } = result.value;
+                    
+                    fetch(`{% url "core:update_student_credentials" "0" %}`.replace("0", studentId), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({
+                            student_id: studentId,
+                            username: username,
+                            password: password
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            Swal.fire('Success', 'Student credentials updated successfully', 'success');
+                            // Update student data in memory
+                            const studentIndex = window.studentData.findIndex(s => String(s.id) === String(studentId));
+                            if (studentIndex !== -1) {
+                                window.studentData[studentIndex].username = username;
+                                if (password) {
+                                    window.studentData[studentIndex].password = password;
+                                }
+                            }
+                            // Refresh the display
+                            displayStudentList(filterData(window.studentData));
+                        } else {
+                            throw new Error(data.message || 'Failed to update credentials');
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire('Error', error.message, 'error');
+                    });
+                }
+            });
+        }
+
+        // Transfer Student Logic
+        document.addEventListener('DOMContentLoaded', function() {
+            const fromBatchSelect = document.querySelector('select[name="from_batch"]');
+            const studentSelect = document.querySelector('select[name="student_id"]');
+
+            fromBatchSelect.addEventListener('change', function() {
+                const batchCode = this.value;
+                if (batchCode) {
+                    fetch("{% url 'core:get_students_by_batch' %}?batch_code=" + encodeURIComponent(batchCode))
+                        .then(response => response.json())
+                        .then(data => {
+                            studentSelect.innerHTML = '<option value="">Select Student</option>';
+                            if (data.students) {
+                                data.students.forEach(student => {
+                                    studentSelect.innerHTML += '<option value="' + student.id + '">' + student.name + ' (' + student.student_code + ')</option>';
+                                });
+                            }
+                        });
+                } else {
+                    studentSelect.innerHTML = '<option value="">Select Student</option>';
+                }
+            });
+        });
+    </script>
+    {% endblock javascript %}
+
+    <!-- No table here anymore -->
+</div>
+{% endblock content %}
