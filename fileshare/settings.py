@@ -9,6 +9,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost','share.z7fb.in', 'filesharing-1-production.up.railway.app']
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://share.z7fb.in", 
+]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
