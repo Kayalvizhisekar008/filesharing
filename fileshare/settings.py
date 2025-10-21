@@ -7,7 +7,7 @@ SECRET_KEY = 'your-secret-key-here'  # Replace with your actual secret key
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost','share.z7fb.in']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost','share.z7fb.in', 'filesharing-1-production.up.railway.app']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
