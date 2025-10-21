@@ -32,7 +32,7 @@ def share_file(request):
     user_role = request.user.role.role_name
     if user_role not in ["Teacher", "Admin"]:
         messages.error(request, "You do not have permission to share files.")
-        return redirect("home")
+        return redirect('core:dashboard')
         
     logger.info(f"User {request.user.username} (role: {user_role}) accessing share_file view")
 
@@ -286,7 +286,7 @@ def manage_students(request):
     user_role = request.user.role.role_name if hasattr(request.user, 'role') and request.user.role else None
     if user_role not in ["Teacher", "Admin"]:
         messages.error(request, "You do not have permission to manage students.")
-        return redirect("home")
+        return redirect('core:dashboard')
 
     if request.method == 'POST':
         batch_code = request.POST.get('batchCode')
