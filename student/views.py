@@ -191,25 +191,22 @@ def received_files(request):
     logger.info(f"Current date: {current_date}")
     
     files = []
+    student = None
     try:
-        # Get or create student profile with transaction
-        with transaction.atomic():
-            student, created = Student.objects.get_or_create(
-                user=request.user,
-                defaults={
-                    'student_code': getattr(request.user, 'batchcode', None) or f'STU{request.user.id}',
-                    'name': request.user.get_full_name() or request.user.username
-                }
-            )
-            if created:
-                logger.info(f"Created new student profile for {request.user.username}")
+        if user_role == "Student":
+            # Get or create student profile with transaction
+            with transaction.atomic():
+                student, created = Student.objects.get_or_create(
+                    user=request.user,
+                    defaults={
+                        'student_code': getattr(request.user, 'batchcode', None) or f'STU{request.user.id}',
+                        'name': request.user.get_full_name() or request.user.username
+                    }
+                )
+                if created:
+                    logger.info(f"Created new student profile for {request.user.username}")
             logger.info(f"Using student profile: {student.name} ({student.student_code})")
 
-        # Get files based on role
-        if user_role == "Admin":
-            logger.info("Admin user - fetching all files")
-            files = Upload.objects.filter(is_active=True).select_related('teacher', 'batch')
-        else:
             # Verify student's batch assignment
             logger.info(f"""
             Student Batch Information:
@@ -253,32 +250,56 @@ def received_files(request):
                 To date: {file.to_date}
                 File exists: {os.path.exists(file.file.path) if file.file else 'No file'}
                 """)
-            
-        if not files:
-            batch_info = f" in batch {student.batch.batch_code}" if student.batch else ""
-            logger.warning(f"No accessible files found for student {student.student_code}{batch_info}")
-            return render(request, "student/received.html", {
+        else:  # Admin
+            logger.info("Admin user - fetching all files")
+            files = Upload.objects.filter(is_active=True).select_related('teacher', 'batch')
+
+        # Prepare context for no files case
+        if user_role == "Admin":
+            no_files_context = {
                 'files_by_subject': {},
                 'files_data_json': '{}',
                 'user_role': user_role,
-                'no_files_message': f"No files are currently shared with you. This could be because:",
+                'no_files_message': "No active files found in the system.",
+                'no_files_reasons': [
+                    "No files have been uploaded yet",
+                    "Files are not active or have been archived"
+                ]
+            }
+        else:
+            no_files_context = {
+                'files_by_subject': {},
+                'files_data_json': '{}',
+                'user_role': user_role,
+                'no_files_message': "No files are currently shared with you. This could be because:",
                 'no_files_reasons': [
                     "No files have been shared with your batch yet",
                     "Shared files are not within their valid date range",
                     "Files are not active or have been archived"
                 ]
-            })
+            }
+
+        if not files:
+            if user_role == "Student":
+                batch_info = f" in batch {student.batch.batch_code}" if student and student.batch else ""
+                logger.warning(f"No accessible files found for student {student.student_code}{batch_info}")
+            else:
+                logger.warning("No active files found for admin")
+            return render(request, "student/received.html", no_files_context)
+
+        # Get unique subjects from existing files, filtering out None
+        subjects = {file.subject for file in files if file.subject is not None}
+        unique_subjects = sorted(list(subjects))
+        files_by_subject = {subject: [] for subject in unique_subjects}
         
-        # Organize files by subject with enhanced file data
-        subjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Language', 'Social', 'Others']
-        files_by_subject = {subject: [] for subject in subjects}
-        
+        # Process each file
         for file in files:
-            if file.subject in files_by_subject:
+            try:
                 # Check file availability and existence
                 file_exists = os.path.exists(file.file.path) if file.file else False
                 is_available = current_date <= file.to_date  # File is available until it expires
                 
+                # Prepare file data
                 file_data = {
                     'id': file.id,
                     'pdf_url': f"/student/view/{file.id}/" if file.file and file_exists else None,
@@ -296,20 +317,29 @@ def received_files(request):
                     'file_exists': file_exists
                 }
                 
-                files_by_subject[file.subject].append(file_data)
-                logger.info(f"Added file {file.id} to subject {file.subject} - Available: {is_available}, Exists: {file_exists}")
+                # Add file to appropriate subject list, skip if subject is None
+                if file.subject:
+                    files_by_subject[file.subject].append(file_data)
+                    logger.info(f"Added file {file.id} to subject {file.subject} - Available: {is_available}, Exists: {file_exists}")
+                
+            except Exception as e:
+                logger.error(f"Error processing file {file.id}: {str(e)}")
+                continue
 
         # Remove subjects with no files
         files_by_subject = {k: v for k, v in files_by_subject.items() if v}
         
+        if not files_by_subject:
+            logger.warning("No files could be processed successfully")
+            return render(request, "student/received.html", no_files_context)
+
         # Convert to JSON for template
         files_data_json = json.dumps(files_by_subject)
-        
-        # Create a hash of the current files data for comparison
         files_data_hash = str(hash(files_data_json))
-        
+
         logger.info(f"Rendering template with {len(files)} files across {len(files_by_subject)} subjects")
-        
+
+        # Prepare final response with cache control headers
         response = render(request, "student/received.html", {
             'files_by_subject': files_by_subject,
             'files_data_json': files_data_json,
@@ -318,13 +348,12 @@ def received_files(request):
             'files_data_hash': files_data_hash,
         })
         
-        # Add cache control headers
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
         
         return response
-
+        
     except Exception as e:
         logger.error(f"Error in received_files view: {str(e)}", exc_info=True)
         messages.error(request, f"Error loading files: {str(e)}")

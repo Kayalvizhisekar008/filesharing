@@ -177,7 +177,9 @@
                 form: document.getElementById('uploadForm'),
                 teacherNameInput: document.getElementById('teacherName'),
                 teacherCodeInput: document.getElementById('teacherCode'),
-                subjectInput: document.getElementById('subject'),
+                subjectSelect: document.getElementById('subject'),
+                otherSubjectField: document.getElementById('otherSubjectField'),
+                otherSubjectInput: document.getElementById('otherSubject'),
                 topicInput: document.getElementById('topic'),
                 fromDateInput: document.getElementById('fromDate'),
                 toDateInput: document.getElementById('toDate')
@@ -325,6 +327,18 @@
             if (elements.batchCodeSelect.value) {
                 updateStudentList();
             }
+
+            // Handle subject selection change
+            elements.subjectSelect.addEventListener('change', function() {
+                if (this.value === 'OTHER') {
+                    elements.otherSubjectField.classList.remove('hidden');
+                    elements.otherSubjectInput.required = true;
+                } else {
+                    elements.otherSubjectField.classList.add('hidden');
+                    elements.otherSubjectInput.required = false;
+                    elements.otherSubjectInput.value = '';
+                }
+            });
 
             // Form submission with validation
             elements.form.addEventListener('submit', function(event) {
